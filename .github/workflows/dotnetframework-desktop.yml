@@ -49,7 +49,9 @@ jobs:
         $svc = Get-Service -Name 'postgresql*' | Select-Object -First 1
         # Set the service to manual start (so it can be started on demand) and start it
         Set-Service -InputObject $svc -StartupType Manual
-        if ($svc.Status -ne 'Running') { Start-Service -InputObject $svc & $env:PGBIN\pg_isready }
+        if ($svc.Status -ne 'Running') { Start-Service -InputObject $svc
+        # Wait for the service to be ready
+        & $env:PGBIN\pg_isready }
         Write-Host "PostgreSQL service: $($svc.Name) - $($svc.Status)"
     
     # Run unit tests
