@@ -59,9 +59,9 @@ jobs:
       env:
         PGPASSWORD: root
       run: |
-        $env:PGBIN\psql -U postgres -c "CREATE DATABASE unit_test_db;"
+        $env:PGBIN\\psql -U postgres -c "CREATE DATABASE unit_test_db;"
 
-        $env:PGBIN\psql -U postgres -d unit_test_db <<'EOSQL'
+        $env:PGBIN\\psql -U postgres -d unit_test_db <<'EOSQL'
         CREATE ROLE "User_FULL"
           NOSUPERUSER INHERIT CREATEDB CREATEROLE NOREPLICATION;
 
