@@ -1,0 +1,67 @@
+name: .NET Framework 4.7.2 app
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    strategy:
+      matrix:
+        configuration: [Release]
+
+    runs-on: windows-latest  # For a list of available runner types, refer to
+                           # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on
+
+    env:
+      Solution_Name: src\Sol1.sln
+      Test_Project_Path: src\Consol1.Tests\Consol1.Tests.csproj
+      
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # Add  MSBuild to the PATH: https://github.com/microsoft/setup-msbuild
+    - name: Setup MSBuild.exe
+      uses: microsoft/setup-msbuild@v2
+
+    # Restore the application to populate the obj folder with RuntimeIdentifiers
+    - name: Restore the application
+      run: msbuild $env:Solution_Name /t:Restore /p:Configuration=$env:Configuration
+      env:
+        Configuration: ${{ matrix.configuration }}
+
+    # Build solution
+    - name: Build solution
+      run: msbuild $env:Solution_Name /t:Clean,Rebuild /p:Configuration=$env:Configuration
+      env:
+        Configuration: ${{ matrix.configuration }}
+
+    - name: Start PostgreSQL service
+      shell: powershell
+      run: |
+        $svc = Get-Service -Name 'postgresql*' | Select-Object -First 1
+        # Set the service to manual start (so it can be started on demand) and start it
+        Set-Service -InputObject $svc -StartupType Manual
+        if ($svc.Status -ne 'Running') { Start-Service $svc.Name }
+        Write-Host "PostgreSQL service: $($svc.Name) - $($svc.Status)"
+    
+    # Run unit tests
+    - name: Run unit tests
+      run: dotnet test $env:Test_Project_Path --configuration $env:Configuration --logger "trx;LogFileName=test-results.trx" --no-build
+      env:
+        Configuration: ${{ matrix.configuration }}
+
+    # Upload test results
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: src\Consol1.Tests\TestResults\test-results.trx
