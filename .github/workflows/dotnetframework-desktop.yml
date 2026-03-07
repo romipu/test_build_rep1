@@ -54,6 +54,56 @@ jobs:
         & $env:PGBIN\pg_isready }
         Write-Host "PostgreSQL service: $($svc.Name) - $($svc.Status)"
     
+    - name: Initialize PostgreSQL database
+      shell: bash
+      env:
+        PGPASSWORD: root
+      run: |
+        psql -U postgres -c "CREATE DATABASE unit_test_db;"
+
+        psql -U postgres -d unit_test_db <<'EOSQL'
+        CREATE ROLE "User_FULL"
+          NOSUPERUSER INHERIT CREATEDB CREATEROLE NOREPLICATION;
+
+        CREATE SCHEMA datamart AUTHORIZATION "User_FULL";
+        CREATE SCHEMA appdata AUTHORIZATION "User_FULL";
+        CREATE SCHEMA portalbasis AUTHORIZATION "User_FULL";
+        CREATE SCHEMA portaldata AUTHORIZATION "User_FULL";
+        CREATE SCHEMA ported AUTHORIZATION "User_FULL";
+        CREATE SCHEMA "temp" AUTHORIZATION "User_FULL";
+        CREATE SCHEMA "report" AUTHORIZATION "User_FULL";
+
+        CREATE EXTENSION IF NOT EXISTS hstore SCHEMA public;
+        CREATE EXTENSION IF NOT EXISTS dblink SCHEMA public;
+        CREATE EXTENSION IF NOT EXISTS postgres_fdw SCHEMA public;
+        GRANT USAGE ON FOREIGN DATA WRAPPER postgres_fdw TO "User_FULL";
+        CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public;
+        CREATE EXTENSION IF NOT EXISTS postgis SCHEMA public;
+
+        CREATE TABLE datamart.market
+        (
+          id bigint NOT NULL,
+          name character varying(50) NOT NULL,
+          description character varying(255),
+          CONSTRAINT market_pkey PRIMARY KEY (id),
+          CONSTRAINT market_name_key UNIQUE (name)
+        );
+        ALTER TABLE datamart.market OWNER TO "User_FULL";
+
+        CREATE TABLE datamart.brand
+        (
+          id bigint NOT NULL,
+          name character varying(50) NOT NULL,
+          description character varying(255),
+          CONSTRAINT brand_pkey PRIMARY KEY (id),
+          CONSTRAINT brand_name_key UNIQUE (name)
+        );
+        ALTER TABLE datamart.brand OWNER TO "User_FULL";
+
+        CREATE ROLE "unit_test_usr" WITH LOGIN PASSWORD '123';
+        GRANT "User_FULL" TO "unit_test_usr";
+        EOSQL
+    
     # Run unit tests
     - name: Run unit tests
       run: dotnet test $env:Test_Project_Path --configuration $env:Configuration --logger "trx;LogFileName=test-results.trx" --no-build
